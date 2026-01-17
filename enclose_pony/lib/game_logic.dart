@@ -15,6 +15,7 @@ Set<int> floodFillFromEdges({
   required int gridSize,
   required Set<int> walls,
   required bool Function(int row, int col) isWater,
+  Map<int, int> portals = const {},
 }) {
   final reachable = <int>{};
   final visited = <int>{};
@@ -37,9 +38,11 @@ Set<int> floodFillFromEdges({
     return true;
   }
 
-  // Helper to get neighbors (up, down, left, right - no diagonals)
+  // Helper to get neighbors (up, down, left, right - no diagonals) + portals
   List<int> getNeighbors(int row, int col) {
     final neighbors = <int>[];
+    final currentIndex = getIndex(row, col);
+    
     // Up
     if (row > 0 && canTraverse(row - 1, col)) {
       neighbors.add(getIndex(row - 1, col));
@@ -56,6 +59,13 @@ Set<int> floodFillFromEdges({
     if (col < gridSize - 1 && canTraverse(row, col + 1)) {
       neighbors.add(getIndex(row, col + 1));
     }
+    
+    // Portal connections
+    if (portals.containsKey(currentIndex)) {
+      final connectedPortal = portals[currentIndex]!;
+      neighbors.add(connectedPortal);
+    }
+    
     return neighbors;
   }
 
@@ -122,11 +132,13 @@ Set<int> getEnclosedCells({
   required int gridSize,
   required Set<int> walls,
   required bool Function(int row, int col) isWater,
+  Map<int, int> portals = const {},
 }) {
   final reachable = floodFillFromEdges(
     gridSize: gridSize,
     walls: walls,
     isWater: isWater,
+    portals: portals,
   );
 
   // All cells that exist but are not reachable are enclosed
@@ -142,5 +154,101 @@ Set<int> getEnclosedCells({
   }
 
   return allCells.difference(reachable);
+}
+
+/// Finds the escape path from horse position to the nearest edge cell.
+/// Returns a list of cell indices representing the path, or empty list if no path exists.
+List<int> findEscapePath({
+  required int gridSize,
+  required int horseRow,
+  required int horseCol,
+  required Set<int> walls,
+  required bool Function(int row, int col) isWater,
+  Map<int, int> portals = const {},
+}) {
+  final path = <int>[];
+  final visited = <int>{};
+  final queue = <int>[];
+  final parent = <int, int>{};
+
+  int getIndex(int row, int col) => row * gridSize + col;
+
+  bool canTraverse(int row, int col) {
+    final index = getIndex(row, col);
+    if (walls.contains(index)) return false;
+    if (isWater(row, col)) return false;
+    return true;
+  }
+
+  List<int> getNeighbors(int row, int col) {
+    final neighbors = <int>[];
+    if (row > 0 && canTraverse(row - 1, col)) {
+      neighbors.add(getIndex(row - 1, col));
+    }
+    if (row < gridSize - 1 && canTraverse(row + 1, col)) {
+      neighbors.add(getIndex(row + 1, col));
+    }
+    if (col > 0 && canTraverse(row, col - 1)) {
+      neighbors.add(getIndex(row, col - 1));
+    }
+    if (col < gridSize - 1 && canTraverse(row, col + 1)) {
+      neighbors.add(getIndex(row, col + 1));
+    }
+    
+    // Portal connections
+    final currentIndex = getIndex(row, col);
+    if (portals.containsKey(currentIndex)) {
+      final connectedPortal = portals[currentIndex]!;
+      neighbors.add(connectedPortal);
+    }
+    
+    return neighbors;
+  }
+
+  bool isEdgeCell(int row, int col) {
+    return row == 0 || row == gridSize - 1 || col == 0 || col == gridSize - 1;
+  }
+
+  // Start BFS from horse position
+  final horseIndex = getIndex(horseRow, horseCol);
+  if (!canTraverse(horseRow, horseCol)) return path;
+
+  queue.add(horseIndex);
+  visited.add(horseIndex);
+  parent[horseIndex] = -1; // Sentinel value
+
+  int? targetIndex;
+
+  while (queue.isNotEmpty) {
+    final currentIndex = queue.removeAt(0);
+    final row = currentIndex ~/ gridSize;
+    final col = currentIndex % gridSize;
+
+    // Check if we reached an edge
+    if (isEdgeCell(row, col)) {
+      targetIndex = currentIndex;
+      break;
+    }
+
+    final neighbors = getNeighbors(row, col);
+    for (final neighborIndex in neighbors) {
+      if (!visited.contains(neighborIndex)) {
+        visited.add(neighborIndex);
+        parent[neighborIndex] = currentIndex;
+        queue.add(neighborIndex);
+      }
+    }
+  }
+
+  // Reconstruct path if target found (path is from edge to horse, so we reverse it)
+  if (targetIndex != null) {
+    int? current = targetIndex;
+    while (current != null && current != -1) {
+      path.add(current);
+      current = parent[current];
+    }
+  }
+
+  return path.reversed.toList(); // Return path from horse to edge
 }
 
