@@ -6,7 +6,6 @@ version: 1.0.0+1
 environment:
   sdk: ^3.10.0
 
-
 dependencies:
   flutter:
     sdk: flutter
@@ -18,6 +17,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.13.1  # ADD THIS LINE HERE
 
 flutter:
   uses-material-design: true
@@ -25,4 +25,10 @@ flutter:
   assets:
     - assets/images/
 
-  
+# THIS SECTION STAYS AT THE BOTTOM (outside flutter: section)
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/horse.png"
+  adaptive_icon_background: "#4CAF50"
+  adaptive_icon_foreground: "assets/horse.png"
