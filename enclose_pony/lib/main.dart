@@ -18,8 +18,8 @@ class EnclosePonyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.blue,
-        scaffoldBackgroundColor: const Color(0xFF1A1F2E),
-        fontFamily: 'Roboto',
+        scaffoldBackgroundColor: const Color(0xFF7ED321), // Green grass background
+        fontFamily: null, // Use system default for more handwritten look
       ),
       home: const GridDisplayScreen(),
     );
@@ -48,13 +48,16 @@ class PortalConnectionPainter extends CustomPainter {
     required this.containerPadding,
   });
   
-  // Portal colors by color ID
+  // Portal colors - different color for each pair
   static const List<Color> _portalPairColors = [
-    Color(0xFF9B59B6), // Purple
-    Color(0xFFE67E22), // Orange
-    Color(0xFF1ABC9C), // Teal
-    Color(0xFFE74C3C), // Red
-    Color(0xFFF39C12), // Yellow
+    Color(0xFF87CEEB), // Light blue/sky blue - Pair 1
+    Color(0xFF9B59B6), // Purple - Pair 2
+    Color(0xFFE67E22), // Orange - Pair 3
+    Color(0xFF1ABC9C), // Teal - Pair 4
+    Color(0xFFE74C3C), // Red - Pair 5
+    Color(0xFFF39C12), // Yellow - Pair 6
+    Color(0xFF3498DB), // Blue - Pair 7
+    Color(0xFF16A085), // Green - Pair 8
   ];
   
   @override
@@ -68,15 +71,9 @@ class PortalConnectionPainter extends CustomPainter {
     
     if (portal2Index == null) return; // No connection found
     
-    // Calculate available width for grid (without container padding)
-    final availableWidth = size.width - 2 * containerPadding;
-    
-    // GridView calculates: (availableWidth - (gridSize - 1) * crossAxisSpacing) / gridSize
-    // Each cell in buildCell has margin of cellMargin, so the visual cell size is smaller
-    // The center of each cell is at: containerPadding + col * (cellSize + crossAxisSpacing) + cellSize/2
-    // Where cellSize = (availableWidth - (gridSize - 1) * crossAxisSpacing) / gridSize
-    
-    final cellSize = (availableWidth - (gridSize - 1) * crossAxisSpacing) / gridSize;
+    // Grid now has no spacing between cells, so cell size is simply width/gridSize
+    // Each cell has margin of 1px on all sides
+    final cellSize = size.width / gridSize;
       
     // Get portal positions
     final portal1Row = portal1Index ~/ gridSize;
@@ -85,11 +82,11 @@ class PortalConnectionPainter extends CustomPainter {
     final portal2Col = portal2Index % gridSize;
     
     // Calculate center positions of portals
-    // Account for cell margin (cellMargin on each side = 2*cellMargin total)
-    final portal1X = containerPadding + portal1Col * (cellSize + crossAxisSpacing) + cellSize / 2;
-    final portal1Y = containerPadding + portal1Row * (cellSize + mainAxisSpacing) + cellSize / 2;
-    final portal2X = containerPadding + portal2Col * (cellSize + crossAxisSpacing) + cellSize / 2;
-    final portal2Y = containerPadding + portal2Row * (cellSize + mainAxisSpacing) + cellSize / 2;
+    // Cell centers are at: col * cellSize + cellSize/2 (accounting for 1px margin)
+    final portal1X = portal1Col * cellSize + cellSize / 2;
+    final portal1Y = portal1Row * cellSize + cellSize / 2;
+    final portal2X = portal2Col * cellSize + cellSize / 2;
+    final portal2Y = portal2Row * cellSize + cellSize / 2;
     
     final portal1Center = Offset(portal1X, portal1Y);
     final portal2Center = Offset(portal2X, portal2Y);
@@ -98,13 +95,22 @@ class PortalConnectionPainter extends CustomPainter {
     final colorId = portalColors[portal1Index] ?? 0;
     final lineColor = _portalPairColors[colorId % _portalPairColors.length];
     
-    // Draw line between portals
+    // Draw line between portals with thicker, more visible line
     final paint = Paint()
-      ..color = lineColor.withValues(alpha: 0.6)
-      ..strokeWidth = 3.0
+      ..color = lineColor.withValues(alpha: 0.8)
+      ..strokeWidth = 5.0
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
     
+    // Also draw a subtle shadow for better visibility
+    final shadowPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.4)
+      ..strokeWidth = 7.0
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.0);
+    
+    canvas.drawLine(portal1Center, portal2Center, shadowPaint);
     canvas.drawLine(portal1Center, portal2Center, paint);
   }
   
@@ -161,6 +167,77 @@ class WaterPainter extends CustomPainter {
   bool shouldRepaint(WaterPainter oldDelegate) => true;
 }
 
+// Custom painter for animated grass background with diagonal lines and shades
+class GrassBackgroundPainter extends CustomPainter {
+  final Animation<double> animation;
+  
+  GrassBackgroundPainter(this.animation) : super(repaint: animation);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Base dark green background
+    final basePaint = Paint()
+      ..color = const Color(0xFF5BA318)
+      ..style = PaintingStyle.fill;
+    
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), basePaint);
+    
+    // Add diagonal line pattern with varying shades
+    final linePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    
+    // Create diagonal lines pattern
+    final spacing = 20.0;
+    final lineOffset = animation.value * spacing; // Animate the lines
+    
+    // Draw diagonal lines going from top-left to bottom-right
+    for (double i = -size.height; i < size.width + size.height; i += spacing) {
+      final x1 = i + lineOffset;
+      final y1 = 0.0;
+      final x2 = i + lineOffset - size.height;
+      final y2 = size.height;
+      
+      // Vary opacity for subtle effect
+      final opacity = 0.1 + (math.sin(i / 50 + animation.value * 2 * math.pi) + 1) / 2 * 0.1;
+      linePaint.color = const Color(0xFF7ED321).withValues(alpha: opacity);
+      
+      canvas.drawLine(Offset(x1, y1), Offset(x2, y2), linePaint);
+    }
+    
+    // Add some lighter green patches for texture
+    final patchPaint = Paint()
+      ..style = PaintingStyle.fill;
+    
+    final random = math.Random(42); // Fixed seed for consistent pattern
+    
+    for (int i = 0; i < 30; i++) {
+      final x = random.nextDouble() * size.width;
+      final y = random.nextDouble() * size.height;
+      final radius = 30 + random.nextDouble() * 50;
+      
+      // Animate patches slightly
+      final animOffset = math.sin(animation.value * 2 * math.pi + i) * 5;
+      
+      final gradient = RadialGradient(
+        colors: [
+          const Color(0xFF7ED321).withValues(alpha: 0.15 + animOffset * 0.01),
+          const Color(0xFF5BA318).withValues(alpha: 0.0),
+        ],
+      );
+      
+      patchPaint.shader = gradient.createShader(
+        Rect.fromCircle(center: Offset(x, y), radius: radius),
+      );
+      
+      canvas.drawCircle(Offset(x, y), radius, patchPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(GrassBackgroundPainter oldDelegate) => true;
+}
+
 // Grid Display Screen - Beautiful UI Version!
 class GridDisplayScreen extends StatefulWidget {
   const GridDisplayScreen({super.key});
@@ -200,6 +277,7 @@ class _GridDisplayScreenState extends State<GridDisplayScreen> with TickerProvid
   bool _showTutorial = true; // Show tutorial on first load
   bool _isHoveringHorse = false; // Track if hovering over horse
   String? _currentHorsePun; // Current horse pun to display
+  double _currentCellSize = 60.0; // Current cell size for icon scaling
   bool _hasSubmitted = false; // Track if player has submitted
   int? _hoveringPortalIndex; // Track which portal is being hovered
   Map<int, int> _portalColors = {}; // Map portal index to color ID for color-coding
@@ -460,12 +538,12 @@ class _GridDisplayScreenState extends State<GridDisplayScreen> with TickerProvid
   bool isWater(int row, int col) => getCellType(row, col) == CellType.water;
   bool isEnclosed(int row, int col) => _enclosedCells.contains(getCellIndex(row, col));
 
-  // Beautiful color scheme
+  // Beautiful color scheme - tiles on green background
   Color _getGrassColor(bool enclosed) {
     if (enclosed) {
-      return const Color(0xFFF4D03F); // Golden yellow for enclosed
+      return const Color(0xFFF4D03F); // Golden yellow for enclosed tiles
     }
-    return const Color(0xFF7ED321); // Fresh green
+    return const Color(0xFF8ED632); // Slightly brighter green for tiles
   }
 
   Color _getWaterColor() => const Color(0xFF4A90E2);
@@ -541,6 +619,7 @@ class _GridDisplayScreenState extends State<GridDisplayScreen> with TickerProvid
     
     setState(() {
       _isHoveringHorse = isHovering;
+      _hoveringPortalIndex = null; // Clear portal hover when hovering horse
       
       if (isHovering) {
         // Select random horse pun
@@ -567,9 +646,18 @@ class _GridDisplayScreenState extends State<GridDisplayScreen> with TickerProvid
   }
   
   void onPortalHover(int? portalIndex) {
-    setState(() {
-      _hoveringPortalIndex = portalIndex;
-    });
+    // Update state for mouse hover (desktop) - don't override tap state
+    // Only update if state is actually different
+    if (_hoveringPortalIndex != portalIndex) {
+      setState(() {
+        _hoveringPortalIndex = portalIndex;
+        if (portalIndex != null) {
+          _isHoveringHorse = false; // Clear horse hover when hovering portal
+          _escapePath = [];
+          _currentHorsePun = null;
+        }
+      });
+    }
   }
   
   void _initializePortalColors() {
@@ -641,6 +729,23 @@ class _GridDisplayScreenState extends State<GridDisplayScreen> with TickerProvid
   int getEscapePathIndex(int index) {
     return _escapePath.indexOf(index);
   }
+  
+  String _buildPuzzleTitle() {
+    if (_puzzleData == null) return '';
+    
+    final day = _puzzleData!.day;
+    final name = _puzzleData!.puzzleName;
+    
+    if (day != null && name != null) {
+      // Format: "Day 20 - Trilemma II"
+      return '$day - $name';
+    } else if (day != null) {
+      return day;
+    } else if (name != null) {
+      return name;
+    }
+    return '';
+  }
 
   Widget buildCell(int row, int col) {
     // Debug: Log first few cells to verify puzzle data is being used
@@ -664,7 +769,53 @@ class _GridDisplayScreenState extends State<GridDisplayScreen> with TickerProvid
     final showPortalConnection = isPortal && (isHoveringThisPortal || isConnectedPortalHovered);
 
     Widget cellContent = GestureDetector(
-      onTap: () => toggleWall(row, col),
+      behavior: HitTestBehavior.opaque, // Ensure taps are detected
+      onTap: () {
+        if (isHorse) {
+          // Toggle horse hover state on tap
+          final newHoverState = !_isHoveringHorse;
+          setState(() {
+            _isHoveringHorse = newHoverState;
+            _hoveringPortalIndex = null; // Clear portal hover when interacting with horse
+          });
+          if (newHoverState) {
+            onHorseHover(true);
+          } else {
+            onHorseHover(false);
+          }
+        } else if (isPortal) {
+          // Toggle portal hover state on tap - show/hide connection line
+          setState(() {
+            if (_hoveringPortalIndex == index) {
+              // Already tapped - untap it to hide the line
+              _hoveringPortalIndex = null;
+              print('Portal $index: Hiding line (was hovered)');
+            } else {
+              // Tap this portal to show connection line
+              _hoveringPortalIndex = index;
+              final connected = _portals[index];
+              print('Portal $index: Showing line (connected to $connected)');
+              // Clear horse hover when interacting with portal
+              if (_isHoveringHorse) {
+                _isHoveringHorse = false;
+                _escapePath = [];
+                _currentHorsePun = null;
+              }
+            }
+          });
+        } else {
+          // Tapping grass or other cells - clear portal and horse hover, then toggle wall
+          setState(() {
+            _hoveringPortalIndex = null;
+            if (_isHoveringHorse) {
+              _isHoveringHorse = false;
+              _escapePath = [];
+              _currentHorsePun = null;
+            }
+          });
+          toggleWall(row, col);
+        }
+      },
       child: AnimatedBuilder(
         animation: Listenable.merge([
           _waterAnimationController,
@@ -673,7 +824,7 @@ class _GridDisplayScreenState extends State<GridDisplayScreen> with TickerProvid
         ]),
         builder: (context, child) {
           return Container(
-            margin: const EdgeInsets.all(3),
+            margin: const EdgeInsets.all(1), // Minimal margin for tile effect
             decoration: BoxDecoration(
               color: _getCellBackgroundColor(
                 cellType, 
@@ -682,27 +833,28 @@ class _GridDisplayScreenState extends State<GridDisplayScreen> with TickerProvid
                 showPortalConnection: showPortalConnection,
                 portalColorId: isPortal ? _portalColors[index] : null,
               ),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
+              border: Border.all(
                   color: onEscapePath 
-                      ? const Color(0xFFE74C3C).withValues(alpha: 0.6 * _pathAnimationController.value)
-                      : Colors.black.withValues(alpha: 0.2 + 0.1 * _pulseAnimationController.value),
-                  blurRadius: onEscapePath ? 8 : 4 + 2 * _pulseAnimationController.value,
-                  offset: Offset(0, 2 + 2 * _pulseAnimationController.value),
-                ),
-              ],
-              border: onEscapePath
-                  ? Border.all(
+                    ? const Color(0xFFE74C3C).withValues(
+                        alpha: 0.9 * (0.5 + 0.5 * _pathAnimationController.value),
+                      )
+                    : const Color(0xFF5BA318).withValues(alpha: 0.6), // Dark green tile border
+                width: onEscapePath ? 3 : 2,
+              ),
+              boxShadow: onEscapePath
+                  ? [
+                      BoxShadow(
                       color: const Color(0xFFE74C3C).withValues(
-                        alpha: 0.8 * (0.5 + 0.5 * _pathAnimationController.value),
+                          alpha: 0.5 * _pathAnimationController.value,
+                        ),
+                        blurRadius: 8,
+                        spreadRadius: 2,
                       ),
-                      width: 3,
-                    )
-                  : null,
+                    ]
+                  : [],
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
+            child: ClipRect(
+              clipBehavior: Clip.none, // Don't clip content - allow icons to be fully visible
               child: Stack(
                 children: [
                   // Escape path highlight
@@ -724,11 +876,15 @@ class _GridDisplayScreenState extends State<GridDisplayScreen> with TickerProvid
                       size: Size.infinite,
                     ),
                   
-                  // Cell content
+                  // Cell content - ensure it's always visible
                   Center(
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: double.infinity,
                     child: Transform.scale(
                       scale: 1.0 + 0.1 * _pulseAnimationController.value * (onEscapePath ? 1 : 0),
-                      child: _buildCellContent(cellType, enclosed, onEscapePath, pathIndex),
+                        child: _buildCellContent(cellType, enclosed, onEscapePath, index, cellSize: _currentCellSize),
+                      ),
                     ),
                   ),
                   
@@ -744,15 +900,14 @@ class _GridDisplayScreenState extends State<GridDisplayScreen> with TickerProvid
                           child: Container(
                             decoration: BoxDecoration(
                               color: const Color(0xFF2C3E50),
-                              borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: const Color(0xFF34495E),
+                                color: const Color(0xFF1A1A1A),
                                 width: 3,
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.4),
-                                  blurRadius: 8,
+                                  color: Colors.black.withValues(alpha: 0.6),
+                                  blurRadius: 4,
                                   offset: const Offset(0, 2),
                                 ),
                               ],
@@ -784,46 +939,62 @@ class _GridDisplayScreenState extends State<GridDisplayScreen> with TickerProvid
       ),
     );
     
-    // Wrap horse cell with MouseRegion for hover detection
+    // Also support hover on desktop
+    Widget finalCell = cellContent;
     if (isHorse) {
-      return MouseRegion(
+      finalCell = MouseRegion(
         onEnter: (_) => onHorseHover(true),
         onExit: (_) => onHorseHover(false),
-        child: cellContent,
+        child: finalCell,
       );
     }
     
-    // Wrap portal cell with MouseRegion for hover detection
     if (isPortal) {
-      return MouseRegion(
+      finalCell = MouseRegion(
         onEnter: (_) => onPortalHover(index),
         onExit: (_) => onPortalHover(null),
-        child: cellContent,
+        child: finalCell,
       );
     }
     
-    return cellContent;
+    return finalCell;
   }
 
   Color _getCellBackgroundColor(CellType cellType, bool enclosed, bool onEscapePath, {bool showPortalConnection = false, int? portalColorId}) {
     if (cellType == CellType.water) return _getWaterColor();
     if (cellType == CellType.portal) {
       if (showPortalConnection) {
-        // Highlight connected portals
-        return const Color(0xFF3498DB).withValues(alpha: 0.6); // Bright blue for hovered/connected portals
+        // Highlight connected portals with their pair color
+        if (portalColorId != null) {
+          final colors = [
+            const Color(0xFF87CEEB), // Light blue
+            const Color(0xFF9B59B6), // Purple
+            const Color(0xFFE67E22), // Orange
+            const Color(0xFF1ABC9C), // Teal
+            const Color(0xFFE74C3C), // Red
+            const Color(0xFFF39C12), // Yellow
+            const Color(0xFF3498DB), // Blue
+            const Color(0xFF16A085), // Green
+          ];
+          return colors[portalColorId % colors.length].withValues(alpha: 0.6);
+        }
+        return const Color(0xFF87CEEB).withValues(alpha: 0.5);
       }
-      // Color-code portals by pair
+      // Color-coded background for portals based on their pair
       if (portalColorId != null) {
         final colors = [
+          const Color(0xFF87CEEB), // Light blue
           const Color(0xFF9B59B6), // Purple
           const Color(0xFFE67E22), // Orange
           const Color(0xFF1ABC9C), // Teal
           const Color(0xFFE74C3C), // Red
           const Color(0xFFF39C12), // Yellow
+          const Color(0xFF3498DB), // Blue
+          const Color(0xFF16A085), // Green
         ];
         return colors[portalColorId % colors.length].withValues(alpha: 0.3);
       }
-      return const Color(0xFF9B59B6).withValues(alpha: 0.3); // Default purple for portal
+      return const Color(0xFF87CEEB).withValues(alpha: 0.2); // Default light blue
     }
     if (onEscapePath) {
       return const Color(0xFFFF6B6B).withValues(alpha: 0.4); // Light red for escape path
@@ -843,7 +1014,15 @@ class _GridDisplayScreenState extends State<GridDisplayScreen> with TickerProvid
     }
   }
 
-  Widget _buildCellContent(CellType cellType, bool enclosed, bool onEscapePath, int pathIndex) {
+  Widget _buildCellContent(CellType cellType, bool enclosed, bool onEscapePath, int pathIndex, {double? cellSize}) {
+    // Get the index for portals - need to pass it from buildCell
+    final portalIndex = cellType == CellType.portal ? pathIndex : -1;
+    
+    // Calculate icon size based on cell size (default to 75% of cell if available, otherwise fixed size)
+    // Use cellSize if provided, otherwise use a default that scales with grid size
+    final effectiveCellSize = cellSize ?? _currentCellSize;
+    final iconSizeFactor = effectiveCellSize * 0.75; // Use 75% of cell size for icons
+    
     switch (cellType) {
       case CellType.horse:
         return Stack(
@@ -853,11 +1032,43 @@ class _GridDisplayScreenState extends State<GridDisplayScreen> with TickerProvid
               animation: _pulseAnimationController,
               builder: (context, child) {
                 return Transform.scale(
-                  scale: 1.0 + 0.15 * _pulseAnimationController.value * (_isHoveringHorse ? 1.5 : 1.0),
-                  child: Text(
-                    '🐴',
-                    style: TextStyle(
-                      fontSize: 36 + (_isHoveringHorse ? 8 : 0),
+                  scale: 1.0 + 0.2 * _pulseAnimationController.value * (_isHoveringHorse ? 2.0 : 1.0),
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFFFFD700).withValues(alpha: _isHoveringHorse ? 0.7 : 0.5),
+                      border: Border.all(
+                        color: Colors.white,
+                        width: _isHoveringHorse ? 4 : 3,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFFFD700).withValues(alpha: _isHoveringHorse ? 1.0 : 0.6),
+                          blurRadius: _isHoveringHorse ? 16 : 10,
+                          spreadRadius: _isHoveringHorse ? 3 : 2,
+                        ),
+                      ],
+                    ),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Shadow layer
+                        Icon(
+                          Icons.pets,
+                          size: iconSizeFactor + (_isHoveringHorse ? iconSizeFactor * 0.3 : 0),
+                          color: Colors.black.withValues(alpha: 0.5),
+                        ),
+                        // Main icon
+                        Transform.translate(
+                          offset: const Offset(-2, -2),
+                          child: Icon(
+                            Icons.pets, // Use icon instead of emoji for better visibility
+                            size: iconSizeFactor + (_isHoveringHorse ? iconSizeFactor * 0.3 : 0), // Scale with cell size
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 );
@@ -902,10 +1113,40 @@ class _GridDisplayScreenState extends State<GridDisplayScreen> with TickerProvid
               animation: _pulseAnimationController,
               builder: (context, child) {
                 return Transform.scale(
-                  scale: 1.0 + 0.1 * _pulseAnimationController.value,
-                  child: const Text(
-                    '🍒',
-                    style: TextStyle(fontSize: 32),
+                  scale: 1.0 + 0.15 * _pulseAnimationController.value,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.3),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.3),
+                          blurRadius: 4,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Shadow layer
+                        Icon(
+                          Icons.circle,
+                          size: iconSizeFactor * 0.85,
+                          color: Colors.black.withValues(alpha: 0.5),
+                        ),
+                        // Main icon
+                        Transform.translate(
+                          offset: const Offset(-2, -2),
+                          child: Icon(
+                            Icons.circle, // Use filled circle icon for cherry
+                            size: iconSizeFactor * 0.85, // Scale with cell size
+                            color: Colors.red.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 );
               },
@@ -938,34 +1179,90 @@ class _GridDisplayScreenState extends State<GridDisplayScreen> with TickerProvid
           ],
         );
       case CellType.water:
-        return const Text(
-          '💧',
-          style: TextStyle(fontSize: 28),
+        return Container(
+          padding: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.white.withValues(alpha: 0.2),
+          ),
+          child: Text(
+            '💧',
+            style: TextStyle(
+              fontSize: iconSizeFactor * 0.7, // Scale with cell size
+              shadows: [
+                Shadow(
+                  color: Colors.black,
+                  blurRadius: 3,
+                  offset: Offset(1, 1),
+                ),
+              ],
+            ),
+          ),
         );
       case CellType.portal:
+        // Calculate teleporter size based on cell size (defined outside AnimatedBuilder for closure access)
+        final teleporterSize = effectiveCellSize * 0.95; // Slightly smaller than full cell
+        
         return AnimatedBuilder(
-          animation: _pulseAnimationController,
+          animation: Listenable.merge([_pulseAnimationController, _pathAnimationController]),
           builder: (context, child) {
+            final isHovered = _hoveringPortalIndex == portalIndex;
+            // Get color for this portal pair
+            final portalColorId = portalIndex >= 0 ? (_portalColors[portalIndex] ?? 0) : 0;
+            final colors = [
+              const Color(0xFF87CEEB), // Light blue - Pair 1
+              const Color(0xFF9B59B6), // Purple - Pair 2
+              const Color(0xFFE67E22), // Orange - Pair 3
+              const Color(0xFF1ABC9C), // Teal - Pair 4
+              const Color(0xFFE74C3C), // Red - Pair 5
+              const Color(0xFFF39C12), // Yellow - Pair 6
+              const Color(0xFF3498DB), // Blue - Pair 7
+              const Color(0xFF16A085), // Green - Pair 8
+            ];
+            final portalColor = colors[portalColorId % colors.length];
+            
             return Transform.scale(
-              scale: 1.0 + 0.15 * _pulseAnimationController.value,
+              scale: 1.0 + 0.25 * _pulseAnimationController.value * (isHovered ? 1.5 : 1.0),
               child: Container(
+                width: teleporterSize,
+                height: teleporterSize,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: const Color(0xFF9B59B6),
-                    width: 3,
+                    color: isHovered ? Colors.white : portalColor,
+                    width: isHovered ? 6 : 5, // Thicker border for visibility
                   ),
                   gradient: RadialGradient(
                     colors: [
-                      const Color(0xFF9B59B6).withValues(alpha: 0.8),
-                      const Color(0xFF9B59B6).withValues(alpha: 0.2),
+                      portalColor.withValues(alpha: isHovered ? 1.0 : 1.0), // More opaque
+                      portalColor.withValues(alpha: isHovered ? 0.5 : 0.4),
                     ],
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: portalColor.withValues(alpha: isHovered ? 1.0 : 0.8),
+                      blurRadius: isHovered ? 24 : 16,
+                      spreadRadius: isHovered ? 4 : 3,
+                    ),
+                    // Additional black shadow for contrast
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      blurRadius: 6,
+                      spreadRadius: 1,
+                    ),
+                  ],
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.sync_alt,
                   color: Colors.white,
-                  size: 24,
+                  size: teleporterSize * 0.5, // Icon is half the container size
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withValues(alpha: 0.7),
+                      blurRadius: 3,
+                      offset: const Offset(1, 1),
+                    ),
+                  ],
                 ),
               ),
             );
@@ -981,123 +1278,77 @@ class _GridDisplayScreenState extends State<GridDisplayScreen> with TickerProvid
     return Scaffold(
       body: Stack(
         children: [
+          // Animated grass background with diagonal lines
           Container(
             decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF1A1F2E),
-                  Color(0xFF2C3E50),
-                ],
-              ),
+              color: Color(0xFF5BA318), // Darker green base
             ),
-            child: SafeArea(
-              child: Column(
-            children: [
-              // Beautiful app bar
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF34495E).withValues(alpha: 0.8),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      blurRadius: 10,
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: CustomPaint(
+              painter: GrassBackgroundPainter(_pulseAnimationController),
+              child: SafeArea(
+                child: Column(
                   children: [
-                    Row(
-                      children: [
-                        const Text(
-                          'Enclose Pony',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        if (_puzzleData?.day != null) ...[
-                          const SizedBox(width: 12),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF3498DB).withValues(alpha: 0.3),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: const Color(0xFF3498DB).withValues(alpha: 0.6),
-                                width: 1,
-                              ),
-                            ),
-                            child: Text(
-                              _puzzleData!.day!,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF3498DB),
-                              ),
+                    // Simple top bar matching the image design - minimal height
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      child: Stack(
+                  children: [
+                    // Centered title and puzzle info
+                    Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'enclose.horse',
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w300,
+                              fontStyle: FontStyle.italic,
+                              color: Colors.white,
+                              letterSpacing: 2,
+                              height: 1.2,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black26,
+                                  blurRadius: 2,
+                                  offset: Offset(1, 1),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                        const SizedBox(width: 12),
-                        // Reset button
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE74C3C).withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: const Color(0xFFE74C3C).withValues(alpha: 0.5),
-                              width: 1,
-                            ),
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: resetWalls,
-                              borderRadius: BorderRadius.circular(8),
-                              child: Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      Icons.refresh,
-                                      color: Color(0xFFE74C3C),
-                                      size: 18,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      'Reset',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                        color: const Color(0xFFE74C3C),
-                                      ),
+                          if (_puzzleData != null && (_puzzleData!.day != null || _puzzleData!.puzzleName != null))
+                            Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Text(
+                                _buildPuzzleTitle(),
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w300,
+                                  fontStyle: FontStyle.italic,
+                                  color: const Color(0xFFFFD700), // Golden color
+                                  letterSpacing: 1.5,
+                                  height: 1.3,
+                                  shadows: [
+                                    Shadow(
+                                      color: Colors.black.withValues(alpha: 0.5),
+                                      blurRadius: 3,
+                                      offset: const Offset(1, 1),
                                     ),
                                   ],
                                 ),
                               ),
                             ),
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                    Row(
-                      children: [
-                        // Help button
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF3498DB).withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: const Color(0xFF3498DB).withValues(alpha: 0.5),
-                              width: 1,
-                            ),
-                          ),
-                          child: Material(
+                    // Help button and hamburger menu in top-right
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Help button
+                          Material(
                             color: Colors.transparent,
                             child: InkWell(
                               onTap: () {
@@ -1111,76 +1362,49 @@ class _GridDisplayScreenState extends State<GridDisplayScreen> with TickerProvid
                                 padding: const EdgeInsets.all(8.0),
                                 child: const Icon(
                                   Icons.help_outline,
-                                  color: Color(0xFF3498DB),
-                                  size: 20,
+                                  color: Colors.white,
+                                  size: 24,
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        // Puzzle selection menu
-                        PopupMenuButton<Map<String, dynamic>>(
-                          icon: Container(
-                            padding: const EdgeInsets.all(8.0),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF9B59B6).withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: const Color(0xFF9B59B6).withValues(alpha: 0.5),
-                                width: 1,
-                              ),
-                            ),
-                            child: const Icon(
+                          const SizedBox(width: 8),
+                          // Hamburger menu
+                          PopupMenuButton<Map<String, dynamic>>(
+                            icon: const Icon(
                               Icons.menu,
-                              color: Color(0xFF9B59B6),
-                              size: 20,
+                              color: Colors.white,
+                              size: 28,
                             ),
-                          ),
-                          itemBuilder: (context) {
-                            if (_allPuzzles.isEmpty) {
+                            itemBuilder: (context) {
                               return [
-                                const PopupMenuItem(
-                                  enabled: false,
-                                  child: Text('Loading puzzles...'),
+                                PopupMenuItem(
+                                  child: const Text('Reset'),
+                                  onTap: () {
+                                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                                      resetWalls();
+                                    });
+                                  },
                                 ),
+                                if (_allPuzzles.isNotEmpty) ...[
+                                  const PopupMenuDivider(),
+                                  ..._allPuzzles.map((puzzle) {
+                                    final dayNumber = puzzle['dayNumber'] as int? ?? 0;
+                                    final name = puzzle['name'] as String? ?? '';
+                                    return PopupMenuItem<Map<String, dynamic>>(
+                                      value: puzzle,
+                                      child: Text('Day $dayNumber: $name'),
+                                    );
+                                  }).toList(),
+                                ],
                               ];
-                            }
-                            return _allPuzzles.map((puzzle) {
-                              final dayNumber = puzzle['dayNumber'] as int? ?? 0;
-                              final name = puzzle['name'] as String? ?? '';
-                              final date = puzzle['date'] as String? ?? '';
-                              return PopupMenuItem<Map<String, dynamic>>(
-                                value: puzzle,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      'Day $dayNumber: $name',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                    if (date.isNotEmpty)
-                                      Text(
-                                        date,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey[600],
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              );
-                            }).toList();
-                          },
-                          onSelected: (puzzle) {
-                            _loadPuzzle(puzzleMetadata: puzzle);
-                          },
-                        ),
-                      ],
+                            },
+                            onSelected: (puzzle) {
+                              _loadPuzzle(puzzleMetadata: puzzle);
+                            },
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -1207,33 +1431,50 @@ class _GridDisplayScreenState extends State<GridDisplayScreen> with TickerProvid
                           ],
                         ),
                       )
-                    : Center(
-                        child: SingleChildScrollView(
-                          child: Padding(
-                            padding: const EdgeInsets.all(20.0),
-                            child: Column(
-                              children: [
-                                // Grid with beautiful styling
-                                Container(
-                            padding: const EdgeInsets.all(12),
+                    : LayoutBuilder(
+                        builder: (context, constraints) {
+                          // Use maximum available space for grid - use almost all available space
+                          final availableHeight = constraints.maxHeight;
+                          final availableWidth = constraints.maxWidth;
+                          
+                          // Calculate optimal cell size - use maximum space available
+                          // Use both width and height, take the minimum to ensure it fits
+                          // Use almost all available space (98% to account for minimal padding)
+                          final cellSizeFromWidth = availableWidth / gridSize;
+                          final cellSizeFromHeight = availableHeight * 0.98 / gridSize; // Use 98% of height
+                          final cellSize = math.min(cellSizeFromWidth, cellSizeFromHeight);
+                          
+                          // Store cell size for icon scaling
+                          if (_currentCellSize != cellSize) {
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              setState(() {
+                                _currentCellSize = cellSize;
+                              });
+                            });
+                          }
+                          
+                          // Calculate actual grid dimensions
+                          final gridWidth = cellSize * gridSize;
+                          final gridHeight = cellSize * gridSize;
+                          
+                          final gridContent = Container(
+                            width: gridWidth,
+                            height: gridHeight,
+                            margin: const EdgeInsets.all(2), // Minimal margin to maximize grid size
                             decoration: BoxDecoration(
-                              color: const Color(0xFF34495E).withValues(alpha: 0.5),
-                              borderRadius: BorderRadius.circular(20),
+                              color: const Color(0xFF7ED321), // Green background for grid area
+                              border: Border.all(
+                                color: const Color(0xFF5BA318).withValues(alpha: 0.8),
+                                width: 2,
+                              ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.4),
-                                  blurRadius: 20,
+                                  color: Colors.black.withValues(alpha: 0.2),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
                                 ),
                               ],
                             ),
-                            child: LayoutBuilder(
-                              builder: (context, constraints) {
-                                // Calculate grid size
-                                final cellSize = (constraints.maxWidth - (gridSize - 1) * 4) / gridSize;
-                                final gridHeight = cellSize * gridSize + (gridSize - 1) * 4;
-                                
-                                return SizedBox(
-                                  height: gridHeight,
                                   child: Stack(
                                     children: [
                                       // Grid cells
@@ -1241,8 +1482,8 @@ class _GridDisplayScreenState extends State<GridDisplayScreen> with TickerProvid
                                         physics: const NeverScrollableScrollPhysics(),
                                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                                           crossAxisCount: gridSize,
-                                          crossAxisSpacing: 4,
-                                          mainAxisSpacing: 4,
+                                    crossAxisSpacing: 0, // No spacing for connected tiles
+                                    mainAxisSpacing: 0, // No spacing for connected tiles
                                         ),
                                         itemCount: gridSize * gridSize,
                                         itemBuilder: (context, index) {
@@ -1252,332 +1493,45 @@ class _GridDisplayScreenState extends State<GridDisplayScreen> with TickerProvid
                                         },
                                       ),
                                       // Portal connection lines overlay (only show on hover)
-                                      if (_hoveringPortalIndex != null)
-                                        Positioned.fill(
+                                      // Always paint (even when null) so repaints work correctly
+                                      Positioned.fill(
+                                        child: IgnorePointer(
                                           child: CustomPaint(
                                             painter: PortalConnectionPainter(
                                               portals: _portals,
                                               portalColors: _portalColors,
                                               hoveringPortalIndex: _hoveringPortalIndex,
                                               gridSize: gridSize,
-                                              cellMargin: 3.0,
-                                              crossAxisSpacing: 4.0,
-                                              mainAxisSpacing: 4.0,
-                                              containerPadding: 12.0,
+                                              cellMargin: 1.0, // Actual margin used in cells
+                                              crossAxisSpacing: 0.0, // No spacing for tiles
+                                              mainAxisSpacing: 0.0, // No spacing for tiles
+                                              containerPadding: 0.0, // No padding needed
                                             ),
                                           ),
                                         ),
+                                      ),
                                     ],
                                   ),
                                 );
-                              },
-                            ),
-                          ),
                           
-                          const SizedBox(height: 24),
-                          
-                          // Submit button with beautiful design
-                          Column(
-                            children: [
-                              if (!_hasSubmitted)
-                                Container(
-                                  margin: const EdgeInsets.only(bottom: 8),
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFE74C3C).withValues(alpha: 0.2),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: const Color(0xFFE74C3C),
-                                      width: 2,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(
-                                        Icons.warning,
-                                        color: Color(0xFFE74C3C),
-                                        size: 16,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        'One Chance Only!',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                          color: const Color(0xFFE74C3C),
-                                          letterSpacing: 0.5,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  AnimatedContainer(
-                                    duration: const Duration(milliseconds: 300),
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(16),
-                                      gradient: _hasSubmitted
-                                          ? const LinearGradient(
-                                              colors: [Color(0xFF95A5A6), Color(0xFF7F8C8D)],
-                                            )
-                                          : const LinearGradient(
-                                              colors: [Color(0xFF3498DB), Color(0xFF2980B9)],
-                                            ),
-                                      boxShadow: _hasSubmitted
-                                          ? []
-                                          : [
-                                              BoxShadow(
-                                                color: const Color(0xFF3498DB).withValues(alpha: 0.4),
-                                                blurRadius: 12,
-                                                offset: const Offset(0, 6),
-                                              ),
-                                            ],
-                                    ),
-                                    child: Material(
-                                      color: Colors.transparent,
-                                      child: InkWell(
-                                        onTap: _hasSubmitted ? null : checkEnclosure,
-                                        borderRadius: BorderRadius.circular(16),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 18),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              if (_hasSubmitted)
-                                                const Icon(
-                                                  Icons.check_circle,
-                                                  color: Colors.white,
-                                                  size: 20,
-                                                ),
-                                              if (_hasSubmitted) const SizedBox(width: 8),
-                                              Text(
-                                                _hasSubmitted ? 'Submitted!' : 'Submit',
-                                                style: const TextStyle(
-                                                  fontSize: 20,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.white,
-                                                  letterSpacing: 1.2,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  if (_horseEnclosed != null) ...[
-                                    const SizedBox(width: 16),
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(16),
-                                        gradient: const LinearGradient(
-                                          colors: [Color(0xFF95A5A6), Color(0xFF7F8C8D)],
-                                        ),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: const Color(0xFF95A5A6).withValues(alpha: 0.4),
-                                            blurRadius: 12,
-                                            offset: const Offset(0, 6),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Material(
-                                        color: Colors.transparent,
-                                        child: InkWell(
-                                          onTap: retryGame,
-                                          borderRadius: BorderRadius.circular(16),
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
-                                            child: const Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Icon(Icons.refresh, color: Colors.white, size: 20),
-                                                SizedBox(width: 8),
-                                                Text(
-                                                  'Retry',
-                                                  style: TextStyle(
-                                                    fontSize: 20,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: Colors.white,
-                                                    letterSpacing: 1.2,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ],
-                          ),
-                          
-                          const SizedBox(height: 16),
-                          
-                          // Instructions
-                          Column(
-                            children: [
-                              Text(
-                                'Tap grass tiles to place walls',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.white.withValues(alpha: 0.7),
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-                              if (!_hasSubmitted)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 8),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Icon(
-                                        Icons.touch_app,
-                                        color: Color(0xFF3498DB),
-                                        size: 16,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        'Tap the horse 🐴 to preview escape path!',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                          color: const Color(0xFF3498DB),
-                                          fontStyle: FontStyle.italic,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                            ],
-                          ),
-                          
-                          // Results
-                          if (_enclosedCells.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 16),
-                              child: Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF4D03F).withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  'Enclosed: ${_enclosedCells.length} cells',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFFF4D03F),
-                                  ),
-                                ),
+                          // Fill entire available space - position more towards top
+                          return SizedBox.expand(
+                            child: Align(
+                              alignment: Alignment.topCenter,
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 8), // Small padding from top
+                                child: gridContent,
                               ),
                             ),
-                          
-                          // Win/Lose message
-                          if (_horseEnclosed != null)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 20),
-                              child: AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 500),
-                                child: Container(
-                                  key: ValueKey(_horseEnclosed),
-                                  padding: const EdgeInsets.all(20),
-                                  decoration: BoxDecoration(
-                                    color: _horseEnclosed!
-                                        ? const Color(0xFF27AE60)
-                                        : const Color(0xFFE74C3C),
-                                    borderRadius: BorderRadius.circular(16),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: (_horseEnclosed!
-                                                ? const Color(0xFF27AE60)
-                                                : const Color(0xFFE74C3C))
-                                            .withValues(alpha: 0.5),
-                                        blurRadius: 20,
-                                      ),
-                                    ],
-                                  ),
-                                  child: Column(
-                                    children: [
-                                      Text(
-                                        _horseEnclosed!
-                                            ? '🎉 WIN! 🎉'
-                                            : '❌ FAIL',
-                                        style: const TextStyle(
-                                          fontSize: 28,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        _horseEnclosed!
-                                            ? 'Horse is enclosed!'
-                                            : 'Horse is NOT enclosed',
-                                        style: const TextStyle(
-                                          fontSize: 18,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                      if (_horseEnclosed! && _score != null) ...[
-                                        const SizedBox(height: 20),
-                                        Container(
-                                          padding: const EdgeInsets.all(16),
-                                          decoration: BoxDecoration(
-                                            color: Colors.white.withValues(alpha: 0.2),
-                                            borderRadius: BorderRadius.circular(12),
-                                          ),
-                                          child: Column(
-                                            children: [
-                                              const Text(
-                                                'Final Score',
-                                                style: TextStyle(
-                                                  fontSize: 16,
-                                                  color: Colors.white70,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Text(
-                                                '$_score',
-                                                style: const TextStyle(
-                                                  fontSize: 36,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.white,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Text(
-                                                _getScoreBreakdown(),
-                                                style: const TextStyle(
-                                                  fontSize: 14,
-                                                  color: Colors.white70,
-                                                ),
-                                                textAlign: TextAlign.center,
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
+                          );
+                        },
                       ),
                     ),
-                  ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
-        ),
-      ),
           
           // Tutorial Overlay
           if (_showTutorial)
@@ -1598,63 +1552,141 @@ class _GridDisplayScreenState extends State<GridDisplayScreen> with TickerProvid
                 );
               },
             ),
-          // Bottom stats overlay (on top of everything except tutorial)
+          // Bottom stats and buttons bar (matching image design)
           Positioned(
             bottom: 0,
             left: 0,
             right: 0,
             child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Walls (bottom left)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF34495E).withValues(alpha: 0.9),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.3),
-                            blurRadius: 10,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                                children: [
+                  // Stats row (Walls left, Score right)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                          child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                        // Walls (bottom left)
+                                              Text(
+                          'Walls: $remainingWalls/$maxWalls',
+                                                style: const TextStyle(
+                            fontSize: 14,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.white,
+                            letterSpacing: 0.5,
                           ),
-                        ],
-                      ),
-                      child: Text(
-                        'Walls: $remainingWalls/$maxWalls',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
                         ),
-                      ),
-                    ),
-                    // Score (bottom right)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF34495E).withValues(alpha: 0.9),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.3),
-                            blurRadius: 10,
+                        // Score (bottom right)
+                                                Text(
+                          'Score: ${_score?.toString() ?? 'N/A'}',
+                          style: const TextStyle(
+                            fontSize: 14,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.white,
+                            letterSpacing: 0.5,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                  // Buttons row (Reset and Submit centered)
+                                Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                        // Reset button (white background, black text)
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: resetWalls,
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: Colors.black.withValues(alpha: 0.2),
+                                  width: 1,
+                                ),
+                              ),
+                              child: const Text(
+                                'Reset',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
+                              ),
+                            ),
                           ),
-                        ],
-                      ),
-                      child: Text(
-                        'Score: ${_score?.toString() ?? 'N/A'}',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
                         ),
-                      ),
-                    ),
-                  ],
-                ),
+                        const SizedBox(width: 12),
+                        // Submit button (light green background, black text)
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: _hasSubmitted ? null : checkEnclosure,
+                            borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                                decoration: BoxDecoration(
+                                color: _hasSubmitted 
+                                    ? Colors.grey[400] 
+                                    : const Color(0xFF8ED632), // Light green
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: Colors.black.withValues(alpha: 0.2),
+                                  width: 1,
+                                ),
+                                ),
+                                child: Text(
+                                _hasSubmitted ? 'Submitted' : 'Submit',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  color: _hasSubmitted ? Colors.white : Colors.black,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ),
+                        // Retry button (only shown after submission)
+                        if (_horseEnclosed != null) ...[
+                          const SizedBox(width: 12),
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: retryGame,
+                              borderRadius: BorderRadius.circular(6),
+                                child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                  decoration: BoxDecoration(
+                                          color: Colors.white,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: Colors.black.withValues(alpha: 0.2),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Retry',
+                                                style: TextStyle(
+                                    fontSize: 14,
+                                                  fontWeight: FontWeight.bold,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                              ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                              ),
+                            ),
+                        ],
               ),
             ),
           ),
@@ -1899,9 +1931,9 @@ class _GridDisplayScreenState extends State<GridDisplayScreen> with TickerProvid
           // Rules list
           _buildRuleItem('Click grass tiles to place walls.'),
           _buildRuleItem('You have limited walls.'),
-          _buildRuleItem('Horses can\'t move diagonally or over water.'),
-          _buildRuleItem('Enclosed cherries give +3 points!', icon: '🍒'),
-          _buildRuleItem('Portals connect distant cells - the horse can teleport through them!', icon: '🌀'),
+          _buildRuleItem('The horse can move in 4 directions. Tap it to see escape path!', icon: Icons.pets, iconColor: Colors.white),
+          _buildRuleItem('Enclosed cherries give +3 points!', icon: Icons.circle, iconColor: Colors.red.shade700),
+          _buildRuleItem('Portals connect distant cells - tap to see connections!', icon: Icons.sync_alt, iconColor: const Color(0xFF87CEEB)),
           _buildRuleItem('Bigger enclosure = bigger score, but you only have one chance to submit!'),
           const SizedBox(height: 24),
           
@@ -2152,7 +2184,7 @@ class _GridDisplayScreenState extends State<GridDisplayScreen> with TickerProvid
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
   
-  Widget _buildRuleItem(String text, {String? icon}) {
+  Widget _buildRuleItem(String text, {IconData? icon, Color? iconColor}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -2168,9 +2200,21 @@ class _GridDisplayScreenState extends State<GridDisplayScreen> with TickerProvid
             ),
           ),
           if (icon != null) ...[
-            Text(
-              icon,
-              style: const TextStyle(fontSize: 20),
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: (iconColor ?? Colors.white).withValues(alpha: 0.2),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: iconColor ?? Colors.white,
+                  width: 2,
+                ),
+              ),
+              child: Icon(
+                icon,
+                size: 20,
+                color: iconColor ?? Colors.white,
+              ),
             ),
             const SizedBox(width: 8),
           ],

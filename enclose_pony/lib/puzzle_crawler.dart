@@ -1,5 +1,7 @@
 // Puzzle crawler for fetching puzzles from enclose.horse
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart' as html_dom;
@@ -7,11 +9,13 @@ import 'package:enclose_pony/puzzle_data.dart';
 
 class PuzzleCrawler {
   static const String baseUrl = 'https://enclose.horse';
+  static const Duration requestTimeout = Duration(seconds: 10);
   
   /// Fetches all available puzzles from __DAILY_LEVELS__
   static Future<List<Map<String, dynamic>>> fetchAllPuzzles() async {
     try {
-      final htmlResponse = await http.get(Uri.parse(baseUrl));
+      final htmlResponse = await http.get(Uri.parse(baseUrl))
+          .timeout(requestTimeout);
       if (htmlResponse.statusCode != 200) return [];
       
       final arrayStartPattern = RegExp(r'window\.__DAILY_LEVELS__\s*=\s*\[', multiLine: true);
@@ -53,7 +57,8 @@ class PuzzleCrawler {
   static Future<PuzzleData?> fetchPuzzleById(String puzzleId, {int? dayNumber, String? puzzleDate}) async {
     try {
       final apiUrl = '$baseUrl/api/levels/$puzzleId';
-      final apiResponse = await http.get(Uri.parse(apiUrl));
+      final apiResponse = await http.get(Uri.parse(apiUrl))
+          .timeout(requestTimeout);
       
       if (apiResponse.statusCode != 200) return null;
       
@@ -71,7 +76,8 @@ class PuzzleCrawler {
     try {
       // First, fetch the main page to get today's puzzle ID
       print('DEBUG: Fetching HTML from $baseUrl');
-      final htmlResponse = await http.get(Uri.parse(baseUrl));
+      final htmlResponse = await http.get(Uri.parse(baseUrl))
+          .timeout(requestTimeout);
       print('DEBUG: HTML response status: ${htmlResponse.statusCode}');
       if (htmlResponse.statusCode != 200) {
         print('DEBUG: Failed to fetch HTML: ${htmlResponse.statusCode}');
@@ -102,7 +108,8 @@ class PuzzleCrawler {
       // Fetch the actual puzzle data from the API
       final apiUrl = '$baseUrl/api/levels/$puzzleId';
       print('DEBUG: Fetching puzzle from API: $apiUrl');
-      final apiResponse = await http.get(Uri.parse(apiUrl));
+      final apiResponse = await http.get(Uri.parse(apiUrl))
+          .timeout(requestTimeout);
       print('DEBUG: API response status: ${apiResponse.statusCode}');
       
       if (apiResponse.statusCode != 200) {
@@ -140,6 +147,16 @@ class PuzzleCrawler {
         return null;
       }
       
+    } on SocketException catch (e, stackTrace) {
+      print('DEBUG: ❌ Network error (DNS/connection failed): $e');
+      print('DEBUG: This usually means the device cannot reach the internet or resolve the hostname');
+      print('DEBUG: Stack trace: $stackTrace');
+    } on TimeoutException catch (e, stackTrace) {
+      print('DEBUG: ❌ Request timed out after ${requestTimeout.inSeconds}s: $e');
+      print('DEBUG: Stack trace: $stackTrace');
+    } on http.ClientException catch (e, stackTrace) {
+      print('DEBUG: ❌ HTTP client error: $e');
+      print('DEBUG: Stack trace: $stackTrace');
     } catch (e, stackTrace) {
       print('DEBUG: ❌ Error fetching puzzle: $e');
       print('DEBUG: Stack trace: $stackTrace');
